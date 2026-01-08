@@ -19,11 +19,10 @@ const UniversalCommWindow = () => {
   useEffect(() => {
     if (status === 'connected') {
       if (isBlindDeaf) {
-        // TACTILE MASTERY: Success Pattern
-        vibratePattern([50, 100, 50, 100, 500]);
+         vibratePattern([50, 100, 50, 100, 500]);
       } else {
-      playSuccess();
-      speak("Universal Link Established");
+         playSuccess();
+         speak("Universal Link Established");
       }
     }
   }, [status, vibratePattern, speak, playSuccess, isBlindDeaf]);
@@ -37,17 +36,21 @@ const UniversalCommWindow = () => {
         const translations: string[] = [];
         
         if (isVisuallyImpaired) {
-          speak(latest.type === 'emoji' ? `Peer sent ${latest.payload} emoji.` : latest.payload);
+          const content = latest.type === 'emoji' ? `Peer sent ${latest.payload} emoji.` : 
+                         latest.type === 'gif' ? "Peer sent an expressive visual signal." :
+                         latest.payload;
+          speak(content);
           translations.push('Audio Path Active');
         } else {
-          // Speak for everyone since user requested sounds throughout
-          speak(latest.type === 'emoji' ? `Peer sent ${latest.payload} emoji.` : latest.payload);
+          const content = latest.type === 'emoji' ? `Peer sent ${latest.payload} emoji.` : 
+                         latest.type === 'gif' ? "Visual Signal Received." :
+                         latest.payload;
+          speak(content);
           playPing();
         }
         
         if (isDeaf) {
           if (isBlindDeaf) {
-            // TACTILE MASTERY: Message Pattern
             vibratePattern([50, 50, 50]);
           } else {
             vibrateShort();
@@ -69,21 +72,21 @@ const UniversalCommWindow = () => {
     <div className="relative mb-12">
       <div className="absolute inset-0 bg-neo-black translate-x-4 translate-y-4"></div>
       <div className={`
-        relative neo-border bg-neo-white min-h-[450px] flex flex-col overflow-hidden transition-all duration-300
+        relative neo-border bg-neo-white min-h-[550px] flex flex-col overflow-hidden transition-all duration-300
         ${visualPulse ? 'border-neo-main border-[10px] scale-[1.01]' : ''}
         ${isGlitching ? 'animate-glitch' : ''}
       `}>
         {/* Translation Alert Overlay */}
         {translationLog && (
           <div className="absolute top-16 left-0 w-full z-50 flex justify-center pointer-events-none">
-            <div className="bg-neo-black text-neo-accent px-4 py-2 font-heavy text-xs uppercase italic animate-in fade-in slide-in-from-top-4 duration-300">
+            <div className="bg-neo-black text-neo-accent px-4 py-2 font-heavy text-xs uppercase italic animate-bounce">
                TRANSLATION: {translationLog}
             </div>
           </div>
         )}
 
         {/* Header */}
-        <div className="bg-neo-black text-neo-white px-6 py-4 flex justify-between items-center">
+        <div className="bg-neo-black text-neo-white px-6 py-4 flex justify-between items-center z-30">
           <div className="flex items-center gap-4">
             <div className={`w-3 h-3 rounded-full ${status === 'connected' ? 'bg-neo-accent animate-pulse' : status === 'searching' ? 'bg-neo-blue animate-ping' : 'bg-gray-500'}`}></div>
             <h2 className="font-heavy uppercase tracking-widest text-xl">
@@ -138,7 +141,7 @@ const UniversalCommWindow = () => {
           )}
 
           {status === 'connected' && peer && (
-            <div className="flex-1 flex flex-col">
+            <div className="flex-1 flex flex-col h-full">
               {/* Peer Info Strip */}
               <div className="flex gap-4 mb-6 pb-4 border-b-2 border-neo-black">
                 <span className="font-heavy uppercase text-sm opacity-50">Peer Profile:</span>
@@ -153,8 +156,8 @@ const UniversalCommWindow = () => {
                 </div>
               </div>
 
-              {/* Message Feed */}
-              <div className="flex-1 flex flex-col gap-4 overflow-y-auto max-h-[250px] mb-6 p-2 custom-scrollbar">
+               {/* Message Feed */}
+               <div className="flex-1 flex flex-col gap-6 overflow-y-auto max-h-[350px] mb-6 p-4 custom-scrollbar bg-neo-black bg-opacity-5 neo-border">
                 {messages.length === 0 ? (
                   <div className="flex-1 flex items-center justify-center opacity-30 italic">
                     Connection stable. Send a signal.
@@ -166,61 +169,43 @@ const UniversalCommWindow = () => {
                       className={`flex flex-col ${msg.sender === 'me' ? 'items-end' : 'items-start'}`}
                     >
                       <div className={`
-                        max-w-[80%] p-4 neo-border font-heavy text-xl
-                        ${msg.sender === 'me' ? 'bg-neo-accent text-neo-black' : 'bg-neo-black text-neo-white'}
+                        max-w-[85%] p-4 neo-border font-heavy text-xl
+                        ${msg.sender === 'me' ? 'bg-neo-accent text-neo-black' : 'bg-neo-white text-neo-black'}
                         ${msg.sender === 'peer' && isDeaf && visualPulse ? 'animate-bounce' : ''}
                       `}>
-                        {msg.type === 'emoji' ? <Emoji char={msg.payload} /> : msg.payload}
+                         {msg.type === 'emoji' ? <Emoji char={msg.payload} /> : 
+                          msg.type === 'gif' ? <img src={msg.payload} className="w-full h-48 object-cover neo-border-md" alt="Signal" /> :
+                          msg.payload}
                       </div>
+                      <span className="text-[10px] font-heavy opacity-30 uppercase mt-1">
+                        {msg.sender === 'me' ? 'You' : 'Peer'} • {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
                     </div>
                   ))
                 )}
               </div>
 
-              {/* Input Area */}
-              <div className="flex flex-col gap-4">
-                <div className="flex gap-4">
-                  <input 
-                    type="text"
-                    placeholder={isMute ? "Mute Mode: Use Signal Wheel..." : isVisuallyImpaired ? "Voice Command Active..." : "Enter signal..."}
-                    disabled={isMute}
-                    className="flex-1 neo-border p-4 font-heavy focus:outline-none focus:ring-4 ring-neo-accent"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && e.currentTarget.value) {
-                        sendMessage('text', e.currentTarget.value);
-                        e.currentTarget.value = '';
-                      }
-                    }}
-                  />
-                  {isVisuallyImpaired && (
-                    <button 
-                      onClick={() => sendMessage('text', 'Vibe check! (Voice Signal)')}
-                      className="neo-border bg-neo-blue text-neo-white px-6 font-heavy uppercase animate-pulse hover:bg-neo-main transition-colors"
-                    >
-                      VOICE
-                    </button>
-                  )}
-                  <div className="flex gap-2">
-                    {['❤️', '🔥', '👏', '👋'].map(e => (
-                      <button 
-                        key={e}
-                        onClick={() => sendMessage('emoji', e)}
-                        className="neo-border bg-neo-white p-3 hover:bg-neo-accent transition-colors"
-                      >
-                        <Emoji char={e} />
-                      </button>
-                    ))}
-                  </div>
+              {/* standard input hidden for mute/blind to use specialized tools */}
+              {status === 'connected' && !isMute && !isVisuallyImpaired && (
+                <div className="flex gap-4 mt-auto">
+                    <input 
+                        type="text"
+                        placeholder="Enter signal..."
+                        className="flex-1 neo-border p-4 font-heavy focus:outline-none focus:ring-4 ring-neo-accent"
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && e.currentTarget.value) {
+                                sendMessage('text', e.currentTarget.value);
+                                e.currentTarget.value = '';
+                            }
+                        }}
+                    />
+                    <div className="flex gap-2">
+                        {['❤️', '🔥', '👏', '👋'].map(e => (
+                            <button key={e} onClick={() => sendMessage('emoji', e)} className="neo-border bg-neo-white px-4 hover:bg-neo-accent transition-colors"><Emoji char={e} /></button>
+                        ))}
+                    </div>
                 </div>
-                {isMute && (
-                  <div className="flex justify-center gap-4 py-2 border-t-2 border-neo-black bg-neo-accent bg-opacity-10">
-                    <span className="font-heavy uppercase text-xs self-center">Gesture Shortcuts:</span>
-                    {['🙏', '🤝', '✌️', '💪'].map(e => (
-                      <button key={e} onClick={() => sendMessage('emoji', e)} className="text-3xl hover:scale-125 transition-transform"><Emoji char={e} /></button>
-                    ))}
-                  </div>
-                )}
-              </div>
+              )}
             </div>
           )}
         </div>

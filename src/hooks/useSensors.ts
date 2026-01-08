@@ -99,3 +99,70 @@ export const useSound = () => {
 
   return { playClick, playSuccess, playPing, playError, playFrequency };
 };
+
+// 🎙️ Voice-to-Text for Blind Users
+export const useSpeechToText = (onResult: (text: string) => void) => {
+  const isListeningRef = useRef(false);
+
+  const startListening = useCallback(() => {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      console.error('Speech recognition not supported');
+      return;
+    }
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => {
+      isListeningRef.current = true;
+      console.log('🎤 Listening...');
+    };
+
+    recognition.onresult = (event: any) => {
+      const text = event.results[0][0].transcript;
+      onResult(text);
+    };
+
+    recognition.onerror = () => {
+      isListeningRef.current = false;
+    };
+
+    recognition.onend = () => {
+      isListeningRef.current = false;
+    };
+
+    recognition.start();
+  }, [onResult]);
+
+  return { startListening, isListening: isListeningRef.current };
+};
+
+// 📳 Braille Vibration Engine for Deaf Users
+export const useBrailleVibration = () => {
+  const brailleMap: Record<string, number[]> = {
+    'a': [200], 'b': [200, 100, 200], 'c': [200, 200], 'd': [200, 200, 100, 200],
+    'e': [200, 100, 200], 'f': [200, 200, 200], 'g': [200, 200, 200, 200],
+    'h': [200, 100, 200, 200], 'i': [100, 200, 200], 'j': [100, 200, 200, 200],
+    // Simplified for demo - true Braille would be bit-pattern based
+    'default': [100, 100, 100]
+  };
+
+  const vibrateTextAsBraille = useCallback((text: string) => {
+    if (!('vibrate' in navigator)) return;
+    
+    let pattern: number[] = [];
+    text.toLowerCase().split('').forEach(char => {
+      const charPattern = brailleMap[char] || brailleMap['default'];
+      pattern = [...pattern, ...charPattern, 300]; // 300ms pause between letters
+    });
+    
+    navigator.vibrate(pattern);
+    console.log('📳 Vibrating Braille:', text);
+  }, []);
+
+  return { vibrateTextAsBraille };
+};
+

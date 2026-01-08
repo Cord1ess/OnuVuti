@@ -4,37 +4,27 @@
 
 OnuVuti is a sensory-adaptive communication hub designed for the next generation of inclusive interactions. Built with a high-energy **Neobrutalist (Dorksense)** aesthetic, it enables users with visual, hearing, or vocal impairments to connect through a shared, modal-transparent interface.
 
-## 🚀 Key Features
+### 1. Universal Resonance Hub
 
-### 1. Universal Communication Hub
-
-- **Resonance Matching**: Pairs users randomly using a cross-impairment translation engine.
+- **Resonance Matching**: Pairs users in real-time rooms via Node.js/Socket.io.
 - **Sensory Translation**: Automatically converts signals (e.g., Emoji → Haptic + TTS) based on recipient needs.
-- **Live Link Architecture**: Real-time feedback via visual pulses, haptic patterns, and voice synthesis.
+- **Expressive Media**: Full Tenor GIF integration with haptic/auditory descriptions for accessibility.
 
 ### 2. Interaction Rehaul (Sensory Tools)
 
+- **Mediator Agent (OnuVuti-Core)**: An invisible AI layer that monitors interaction balance, detects emotional confusion, and triggers subtle grounding nudges.
 - **Haptic Sight (Blind)**: Interactive cursor scanning that describes the UI via sound and vibration.
-- **Visual Hearing (Deaf)**: A high-fidelity reactive waveform visualizer for rhythmic audio feedback.
-- **Expression Composer (Mute)**: A categorised intent-engine for building complex non-verbal messages.
-
-### 3. Progressive Accessibility
-
-- **Tactile Mastery**: Specialized vibration signatures for Blind+Deaf users.
-- **Glitch Mode**: High-energy visual transitions that double as status indicators.
-- **Inclusive UI Map**: 100% coverage for non-visual navigation via `data-haptic-label`.
+- **Visual Hearing (Deaf)**: A high-fidelity reactive waveform visualizer and tactile Braille vibration engine.
+- **Expression Hub (Mute)**: Intent-engine for building complex non-verbal messages and voice-to-text projection.
 
 ## 🛠️ Technical Stack
 
-- **Framework**: React + Vite
-- **Styling**: Vanilla CSS + Tailwind (Neobrutalist System)
-- **Sensors**: Web Speech API, Vibration API, Canvas API
-- **Design**: Dorksense Architecture (Aggressive borders, grainy textures, vibrant contrast)
-
-## 🎨 Aesthetic
-
-OnuVuti embraces the **Neobrutalist** philosophy—UI that is raw, high-contrast, and unapologetically accessible. It uses custom cursors, chromatic aberration glitch effects, and a pervasive grain overlay to create a premium, tactile feel.
+- **Frontend**: React + Vite
+- **Backend**: Node.js + Socket.io (Real-time Signal Relay)
+- **API**: Tenor API (Expressive Media Proxy)
+- **Sensors**: Web Speech API, Vibration API, Canvas API, Face-API.js (Expression Recognition)
+- **Design**: Neobrutalist System (High-contrast, Aggressive borders, Grainy textures)
 
 ---
 
-_Winner of the Sensory Innovation Hackathon Concept (Simulated)._
+_A premium, high-energy accessibility project built for the age of resonance._

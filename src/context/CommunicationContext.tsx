@@ -1,13 +1,16 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
 import type { Impairment } from './AccessibilityContext';
 import { eventBus } from '../features/EventBus';
+import { io, Socket } from 'socket.io-client';
+import { mediatorAgent } from '../features/MediatorAgent';
+import { useAccessibility } from './AccessibilityContext';
 
 export type ConnectionStatus = 'idle' | 'searching' | 'connected';
 
 interface Message {
   id: string;
   sender: 'me' | 'peer';
-  type: 'text' | 'emoji' | 'action';
+  type: 'text' | 'emoji' | 'action' | 'gif';
   payload: string;
   timestamp: number;
 }
@@ -28,13 +31,17 @@ interface CommunicationContextType {
   sendMessage: (type: Message['type'], payload: string) => void;
 }
 
+const SOCKET_URL = 'http://localhost:3001';
 const CommunicationContext = createContext<CommunicationContextType | undefined>(undefined);
 
 export const CommunicationProvider = ({ children }: { children: ReactNode }) => {
+  const { isVisuallyImpaired, isDeaf, isMute } = useAccessibility();
   const [status, setStatus] = useState<ConnectionStatus>('idle');
   const [peer, setPeer] = useState<PeerProfile | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isGlitching, setIsGlitching] = useState(false);
+  const socketRef = useRef<Socket | null>(null);
+  const roomRef = useRef<string | null>(null);
 
   const triggerGlitch = useCallback(() => {
     setIsGlitching(true);
@@ -45,7 +52,46 @@ export const CommunicationProvider = ({ children }: { children: ReactNode }) => 
     eventBus.emit('energy_impulse', amount);
   }, []);
 
+  useEffect(() => {
+    // Initialize Socket
+    socketRef.current = io(SOCKET_URL, { autoConnect: false });
+
+    socketRef.current.on('receive_signal', (data: any) => {
+      const incomingMessage: Message = {
+        id: Date.now().toString() + Math.random(),
+        sender: 'peer',
+        type: data.type,
+        payload: data.payload,
+        timestamp: Date.now()
+      };
+      setMessages(prev => [...prev, incomingMessage]);
+      triggerGlitch();
+      triggerEnergy(0.8);
+      
+      eventBus.emit('interaction_triggered', { type: 'peer_signal', payload: data });
+    });
+
+    socketRef.current.on('peer_joined', (data: any) => {
+      setPeer({
+        id: data.id,
+        impairments: data.profile?.impairments || ['visual'], 
+        name: 'Resonator'
+      });
+      setStatus('connected');
+      mediatorAgent.start();
+      triggerGlitch();
+      triggerEnergy(1);
+    });
+
+    return () => {
+      socketRef.current?.disconnect();
+      mediatorAgent.stop();
+    };
+  }, [triggerGlitch, triggerEnergy]);
+
   const disconnect = useCallback(() => {
+    socketRef.current?.disconnect();
+    mediatorAgent.stop();
     setStatus('idle');
     setPeer(null);
     setMessages([]);
@@ -57,43 +103,35 @@ export const CommunicationProvider = ({ children }: { children: ReactNode }) => 
     setPeer(null);
     setMessages([]);
 
+    const roomId = 'resonance-alpha'; 
+    roomRef.current = roomId;
+    
+    const myImpairments = [];
+    if (isVisuallyImpaired) myImpairments.push('visual');
+    if (isDeaf) myImpairments.push('deaf');
+    if (isMute) myImpairments.push('mute');
+
+    socketRef.current?.connect();
+    socketRef.current?.emit('join_resonance', { 
+        roomId, 
+        profile: { impairments: myImpairments } 
+    });
+
+    // Demo Mirror Fallback
     const timer = setTimeout(() => {
-      const randomImpairments: Impairment[] = [];
-      const possibilities: Impairment[] = ['visual', 'deaf', 'mute'];
-      const count = Math.floor(Math.random() * 2) + 1;
-      
-      for (let i = 0; i < count; i++) {
-        const choice = possibilities[Math.floor(Math.random() * possibilities.length)];
-        if (!randomImpairments.includes(choice)) {
-          randomImpairments.push(choice);
+        if (!peer && roomRef.current) {
+            setPeer({
+                id: 'demo-peer',
+                impairments: ['deaf'],
+                name: 'Resonance Mirror'
+            });
+            setStatus('connected');
+            mediatorAgent.start();
         }
-      }
-
-      setPeer({
-        id: Math.random().toString(36).substr(2, 9),
-        impairments: randomImpairments,
-        name: 'Anonymous Peer'
-      });
-      setStatus('connected');
-      triggerGlitch();
-      triggerEnergy(1);
-
-      // MOCK INITIAL MESSAGE
-      setTimeout(() => {
-        const welcomeMsg: Message = {
-          id: 'welcome-peer',
-          sender: 'peer',
-          type: 'text',
-          payload: "Connection established. I'm listening through my sensory hub.",
-          timestamp: Date.now()
-        };
-        setMessages(prev => [...prev, welcomeMsg]);
-        triggerGlitch();
-      }, 1000);
-    }, 3000);
+    }, 5000);
 
     return () => clearTimeout(timer);
-  }, [triggerGlitch, triggerEnergy]);
+  }, [peer]);
 
   const sendMessage = useCallback((type: Message['type'], payload: string) => {
     const newMessage: Message = {
@@ -105,24 +143,34 @@ export const CommunicationProvider = ({ children }: { children: ReactNode }) => 
     };
     setMessages(prev => [...prev, newMessage]);
     triggerEnergy(0.5);
+    eventBus.emit('interaction_triggered', { type: 'user_signal', payload: { type, payload } });
 
-    if (status === 'connected') {
+    if (socketRef.current?.connected && roomRef.current) {
+        socketRef.current.emit('send_signal', {
+            roomId: roomRef.current,
+            type,
+            payload,
+            senderId: socketRef.current.id
+        });
+    }
+
+    if (peer?.id === 'demo-peer') {
       setTimeout(() => {
         let response = '';
         let respType: Message['type'] = 'text';
 
-        // MOCK INTELLIGENT RESPONSES
         if (payload.includes('👋') || payload.toLowerCase().includes('hello')) {
             response = "Hello! I can feel your wave.";
         } else if (payload.includes('❤️')) {
             response = "❤️";
             respType = 'emoji';
+        } else if (type === 'gif') {
+            response = "https://media.tenor.com/images/eba4a6136df3f2a8999052d96204369a/tenor.gif"; // Happy nod
+            respType = 'gif';
         } else if (payload.includes('😊')) {
             response = "Your happiness resonates with me.";
-        } else if (payload.includes('😢')) {
-            response = "I feel your sadness. I'm here.";
         } else {
-            const responses = ['❤️', '🔥', '🙌', 'I feel you.', 'Interesting...', 'Resonance shift detected.'];
+            const responses = ['❤️', '🔥', '🙌', 'I feel as you feel.', 'Resonance shift detected.'];
             response = responses[Math.floor(Math.random() * responses.length)];
             respType = response.length <= 2 ? 'emoji' : 'text';
         }
@@ -139,7 +187,7 @@ export const CommunicationProvider = ({ children }: { children: ReactNode }) => 
         triggerEnergy(0.8);
       }, 2000);
     }
-  }, [status, triggerGlitch, triggerEnergy]);
+  }, [peer, triggerGlitch, triggerEnergy]);
 
   return (
     <CommunicationContext.Provider value={{ 

@@ -1,7 +1,20 @@
 import { useEffect, useRef } from 'react';
-const VisualHearing = ({ active, energy = 0 }: { active: boolean; energy?: number }) => {
+import { eventBus } from '../features/EventBus';
+
+const VisualHearing = ({ active }: { active: boolean }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const requestRef = useRef<number>(0);
+  const currentEnergyRef = useRef<number>(0);
+
+  useEffect(() => {
+    // Subscribe to energy impulses
+    const handleEnergy = (amount: number) => {
+      // Add energy, cap at 1.5
+      currentEnergyRef.current = Math.min(1.5, currentEnergyRef.current + amount);
+    };
+    eventBus.on('energy_impulse', handleEnergy);
+    return () => eventBus.off('energy_impulse', handleEnergy);
+  }, []);
 
   useEffect(() => {
     if (!active) return;
@@ -23,6 +36,12 @@ const VisualHearing = ({ active, energy = 0 }: { active: boolean; energy?: numbe
     const animate = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
+      // Decay energy
+      if (currentEnergyRef.current > 0) {
+        currentEnergyRef.current = Math.max(0, currentEnergyRef.current - 0.02);
+      }
+      const energy = currentEnergyRef.current;
+
       const energyBoost = 1 + energy * 2;
       ctx.lineWidth = 4 + energy * 6;
       ctx.strokeStyle = '#00E5FF'; // neo-blue

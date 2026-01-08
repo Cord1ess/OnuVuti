@@ -1,5 +1,6 @@
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 import type { Impairment } from './AccessibilityContext';
+import { eventBus } from '../features/EventBus';
 
 export type ConnectionStatus = 'idle' | 'searching' | 'connected';
 
@@ -22,7 +23,6 @@ interface CommunicationContextType {
   peer: PeerProfile | null;
   messages: Message[];
   isGlitching: boolean;
-  energy: number; // 0 to 1
   startMatching: () => void;
   disconnect: () => void;
   sendMessage: (type: Message['type'], payload: string) => void;
@@ -35,16 +35,6 @@ export const CommunicationProvider = ({ children }: { children: ReactNode }) => 
   const [peer, setPeer] = useState<PeerProfile | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isGlitching, setIsGlitching] = useState(false);
-  const [energy, setEnergy] = useState(0);
-
-  // Energy decay loop
-  useEffect(() => {
-    if (energy <= 0) return;
-    const timer = setInterval(() => {
-      setEnergy(prev => Math.max(0, prev - 0.05));
-    }, 50);
-    return () => clearInterval(timer);
-  }, [energy]);
 
   const triggerGlitch = useCallback(() => {
     setIsGlitching(true);
@@ -52,15 +42,15 @@ export const CommunicationProvider = ({ children }: { children: ReactNode }) => 
   }, []);
 
   const triggerEnergy = useCallback((amount = 1) => {
-    setEnergy(prev => Math.min(1, prev + amount));
+    eventBus.emit('energy_impulse', amount);
   }, []);
 
   const disconnect = useCallback(() => {
     setStatus('idle');
     setPeer(null);
     setMessages([]);
-    setEnergy(0);
-  }, []);
+    triggerEnergy(0);
+  }, [triggerEnergy]);
 
   const startMatching = useCallback(() => {
     setStatus('searching');
@@ -87,6 +77,19 @@ export const CommunicationProvider = ({ children }: { children: ReactNode }) => 
       setStatus('connected');
       triggerGlitch();
       triggerEnergy(1);
+
+      // MOCK INITIAL MESSAGE
+      setTimeout(() => {
+        const welcomeMsg: Message = {
+          id: 'welcome-peer',
+          sender: 'peer',
+          type: 'text',
+          payload: "Connection established. I'm listening through my sensory hub.",
+          timestamp: Date.now()
+        };
+        setMessages(prev => [...prev, welcomeMsg]);
+        triggerGlitch();
+      }, 1000);
     }, 3000);
 
     return () => clearTimeout(timer);
@@ -105,12 +108,30 @@ export const CommunicationProvider = ({ children }: { children: ReactNode }) => 
 
     if (status === 'connected') {
       setTimeout(() => {
-        const responses = ['❤️', '🔥', '🙌', 'Hello!', 'I feel you.', 'Interesting...'];
+        let response = '';
+        let respType: Message['type'] = 'text';
+
+        // MOCK INTELLIGENT RESPONSES
+        if (payload.includes('👋') || payload.toLowerCase().includes('hello')) {
+            response = "Hello! I can feel your wave.";
+        } else if (payload.includes('❤️')) {
+            response = "❤️";
+            respType = 'emoji';
+        } else if (payload.includes('😊')) {
+            response = "Your happiness resonates with me.";
+        } else if (payload.includes('😢')) {
+            response = "I feel your sadness. I'm here.";
+        } else {
+            const responses = ['❤️', '🔥', '🙌', 'I feel you.', 'Interesting...', 'Resonance shift detected.'];
+            response = responses[Math.floor(Math.random() * responses.length)];
+            respType = response.length <= 2 ? 'emoji' : 'text';
+        }
+
         const peerMessage: Message = {
           id: (Date.now() + 1).toString(),
           sender: 'peer',
-          type: Math.random() > 0.5 ? 'text' : 'emoji',
-          payload: responses[Math.floor(Math.random() * responses.length)],
+          type: respType,
+          payload: response,
           timestamp: Date.now()
         };
         setMessages(prev => [...prev, peerMessage]);
@@ -122,7 +143,7 @@ export const CommunicationProvider = ({ children }: { children: ReactNode }) => 
 
   return (
     <CommunicationContext.Provider value={{ 
-      status, peer, messages, isGlitching, energy, 
+      status, peer, messages, isGlitching,
       startMatching, disconnect, sendMessage 
     }}>
       {children}

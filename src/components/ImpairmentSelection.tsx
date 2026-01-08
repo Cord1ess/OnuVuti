@@ -1,6 +1,5 @@
 import { useAccessibility } from '../context/AccessibilityContext';
 import { useVibration, useSpeech } from '../hooks/useSensors';
-import confetti from 'canvas-confetti';
 
 const ImpairmentSelection = ({ onComplete }: { onComplete: () => void }) => {
   const { toggleImpairment, selectedImpairments } = useAccessibility();
@@ -52,15 +51,7 @@ const ImpairmentSelection = ({ onComplete }: { onComplete: () => void }) => {
       </div>
 
       <button
-        onClick={() => {
-          confetti({
-            particleCount: 150,
-            spread: 70,
-            origin: { y: 0.6 },
-            colors: ['#FF4D00', '#A3FF00', '#9D00FF']
-          });
-          setTimeout(onComplete, 500);
-        }}
+        onClick={onComplete}
         disabled={selectedImpairments.length === 0}
         className={`
           mt-16 relative group
@@ -69,7 +60,7 @@ const ImpairmentSelection = ({ onComplete }: { onComplete: () => void }) => {
       >
         <div className="absolute inset-0 bg-neo-black translate-x-2 translate-y-2 group-hover:translate-x-4 group-hover:translate-y-4 transition-transform"></div>
         <div className="relative neo-border bg-neo-main px-12 py-6 font-heavy text-3xl text-neo-white hover:-translate-y-1 hover:-translate-x-1 transition-transform active:translate-x-1 active:translate-y-1 uppercase italic tracking-tighter">
-          ON AIR →
+          COMMUNICATE →
         </div>
       </button>
     </div>

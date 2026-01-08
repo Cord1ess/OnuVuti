@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Emoji from './Emoji';
+import { useSound, useSpeech } from '../hooks/useSensors';
 
 interface ExpressionComposerProps {
   onSend: (message: string) => void;
@@ -7,6 +8,8 @@ interface ExpressionComposerProps {
 
 const ExpressionComposer = ({ onSend }: ExpressionComposerProps) => {
   const [composerItems, setComposerItems] = useState<string[]>([]);
+  const { playClick, playSuccess, playFrequency } = useSound();
+  const { speak } = useSpeech();
 
   const options = [
     { label: 'ACTION', items: ['👋', '🙏', '🤝', '🚶', '🏃', '✋'] },
@@ -16,11 +19,14 @@ const ExpressionComposer = ({ onSend }: ExpressionComposerProps) => {
 
   const addItem = (item: string) => {
     if (composerItems.length < 5) {
+      playClick();
       setComposerItems([...composerItems, item]);
+      speak(item, { rate: 1.5 });
     }
   };
 
   const removeItem = (index: number) => {
+    playFrequency(200, 'sawtooth', 0.1);
     setComposerItems(composerItems.filter((_, i) => i !== index));
   };
 
@@ -73,6 +79,8 @@ const ExpressionComposer = ({ onSend }: ExpressionComposerProps) => {
       <button 
         onClick={() => {
           if (composerItems.length > 0) {
+            playSuccess();
+            speak("Intent Dispatched");
             onSend(composerItems.join(' '));
             setComposerItems([]);
           }

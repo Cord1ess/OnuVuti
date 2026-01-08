@@ -1,8 +1,13 @@
 import { useEffect } from 'react';
+import { useSpeech } from '../hooks/useSensors';
 
 const Loader = () => {
+  const { speak } = useSpeech();
+
   useEffect(() => {
     // Basic auto-hide for demo
+    speak("Welcome to Onuvuti. Communicate with culture.", { rate: 0.9 });
+    
     const timer = setTimeout(() => {
       const loader = document.getElementById('loader');
       if (loader) {

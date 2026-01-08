@@ -1,3 +1,5 @@
+import { eventBus } from './EventBus';
+
 /**
  * Singleton class to manage camera access and video stream.
  * Ensures only one video stream is active and shared across consumers.
@@ -41,8 +43,8 @@ class CameraManager {
             try {
                 this.stream = await navigator.mediaDevices.getUserMedia({
                     video: {
-                        width: { ideal: 640 },
-                        height: { ideal: 480 },
+                        width: { ideal: 320, max: 320 },
+                        height: { ideal: 240, max: 240 },
                         facingMode: 'user',
                     },
                     audio: false,
@@ -54,6 +56,7 @@ class CameraManager {
                     };
                 });
                 console.log('📸 CameraManager: Stream started');
+                eventBus.emit('camera_ready');
             } catch (error) {
                 console.error('📸 CameraManager: Failed to start stream', error);
                 throw error;

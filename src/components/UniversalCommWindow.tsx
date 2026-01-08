@@ -1,17 +1,18 @@
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useCommunication as useCommData } from '../context/CommunicationContext';
 import { useAccessibility } from '../context/AccessibilityContext';
-import { useSpeech, useVibration } from '../hooks/useSensors';
+import { useSpeech, useVibration, useSound } from '../hooks/useSensors';
 import Emoji from './Emoji';
 
 const UniversalCommWindow = () => {
-  const { status, peer, messages, isGlitching, startMatching, disconnect, sendMessage } = useCommData();
-  const { isVisuallyImpaired, isDeaf, isMute } = useAccessibility();
-  const { speak } = useSpeech();
-  const { vibrateShort, vibratePattern } = useVibration();
-  const lastMessageId = useRef<string | null>(null);
-  const [visualPulse, setVisualPulse] = useState(false);
-  const [translationLog, setTranslationLog] = useState<string | null>(null);
+    const { status, peer, messages, isGlitching, startMatching, disconnect, sendMessage } = useCommData();
+    const { isVisuallyImpaired, isDeaf, isMute } = useAccessibility();
+    const { speak } = useSpeech();
+    const { vibrateShort, vibratePattern } = useVibration();
+    const { playClick, playSuccess, playPing, playFrequency } = useSound();
+    const lastMessageId = useRef<string | null>(null);
+    const [visualPulse, setVisualPulse] = useState(false);
+    const [translationLog, setTranslationLog] = useState<string | null>(null);
 
   const isBlindDeaf = isVisuallyImpaired && isDeaf;
 
@@ -21,11 +22,11 @@ const UniversalCommWindow = () => {
         // TACTILE MASTERY: Success Pattern
         vibratePattern([50, 100, 50, 100, 500]);
       } else {
-        vibratePattern([500, 100, 500]);
-      }
+      playSuccess();
       speak("Universal Link Established");
+      }
     }
-  }, [status, vibratePattern, speak, isBlindDeaf]);
+  }, [status, vibratePattern, speak, playSuccess, isBlindDeaf]);
 
   useEffect(() => {
     if (status === 'connected' && messages.length > 0) {
@@ -36,8 +37,12 @@ const UniversalCommWindow = () => {
         const translations: string[] = [];
         
         if (isVisuallyImpaired) {
-          speak(latest.type === 'emoji' ? `Peer sent an emoji.` : latest.payload);
+          speak(latest.type === 'emoji' ? `Peer sent ${latest.payload} emoji.` : latest.payload);
           translations.push('Audio Path Active');
+        } else {
+          // Speak for everyone since user requested sounds throughout
+          speak(latest.type === 'emoji' ? `Peer sent ${latest.payload} emoji.` : latest.payload);
+          playPing();
         }
         
         if (isDeaf) {
@@ -89,7 +94,7 @@ const UniversalCommWindow = () => {
           </div>
           {status === 'connected' && (
             <button 
-              onClick={disconnect}
+              onClick={() => { playClick(); disconnect(); }}
               className="bg-neo-main text-neo-white px-4 py-1 font-heavy uppercase text-sm hover:translate-y-[-2px] transition-transform"
             >
               Terminate
@@ -105,7 +110,11 @@ const UniversalCommWindow = () => {
                 <Emoji char="🌐" />
               </div>
               <button 
-                onClick={startMatching}
+                onClick={() => {
+                  playClick();
+                  startMatching();
+                }}
+                onMouseEnter={() => playFrequency(800, 'sine', 0.05, 0.02)}
                 className="neo-border bg-neo-accent px-12 py-6 font-heavy text-3xl uppercase italic hover:bg-neo-main hover:text-neo-white transition-all transform hover:-translate-y-2 shadow-neo-lg active:translate-y-1 active:translate-x-1"
               >
                 Find Resonance →
@@ -215,41 +224,9 @@ const UniversalCommWindow = () => {
             </div>
           )}
         </div>
-
-        {/* Resilience Footer Marquee */}
-        <div className="bg-neo-black py-2 overflow-hidden border-t-2 border-neo-black flex whitespace-nowrap">
-           <div className="flex animate-marquee shrink-0 gap-8 items-center px-4">
-              {[...Array(10)].map((_, i) => (
-                <div key={i} className="flex items-center gap-4 text-[10px] font-heavy text-neo-accent uppercase italic">
-                   <span>Resilience Link: STABLE</span>
-                   <div className="flex gap-1 h-3 items-end">
-                      {[...Array(5)].map((_, j) => (
-                        <div key={j} className={`w-1 bg-neo-accent ${j < 4 ? 'h-full' : 'h-1/2 opacity-30'}`}></div>
-                      ))}
-                   </div>
-                   <span className="text-neo-blue">SYNC_MODE: ACTIVE</span>
-                   <span className="opacity-30">|</span>
-                </div>
-              ))}
-           </div>
-           <div className="flex animate-marquee shrink-0 gap-8 items-center px-4" aria-hidden="true">
-              {[...Array(10)].map((_, i) => (
-                <div key={i} className="flex items-center gap-4 text-[10px] font-heavy text-neo-accent uppercase italic">
-                   <span>Resilience Link: STABLE</span>
-                   <div className="flex gap-1 h-3 items-end">
-                      {[...Array(5)].map((_, j) => (
-                        <div key={j} className={`w-1 bg-neo-accent ${j < 4 ? 'h-full' : 'h-1/2 opacity-30'}`}></div>
-                      ))}
-                   </div>
-                   <span className="text-neo-blue">SYNC_MODE: ACTIVE</span>
-                   <span className="opacity-30">|</span>
-                </div>
-              ))}
-           </div>
-        </div>
       </div>
     </div>
   );
 };
 
-export default UniversalCommWindow;
+export default React.memo(UniversalCommWindow);

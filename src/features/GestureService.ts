@@ -46,12 +46,18 @@ class GestureService {
         console.log('🙌 GestureService: Stopped');
     }
 
+    private lastProcessTime = 0;
+    private readonly THROTTLE_MS = 150; // ~6 FPS is fine for gestures
+
     private loop = async () => {
         if (!this.isRunning) return;
 
+        const now = Date.now();
         const video = cameraManager.getVideoElement();
-        if (cameraManager.isReady() && video.currentTime !== this.lastVideoTime) {
+
+        if (cameraManager.isReady() && video.currentTime !== this.lastVideoTime && (now - this.lastProcessTime >= this.THROTTLE_MS)) {
             this.lastVideoTime = video.currentTime;
+            this.lastProcessTime = now;
 
             try {
                 const result = this.gestureRecognizer?.recognizeForVideo(video, Date.now());

@@ -1,82 +1,167 @@
-import * as faceapi from 'face-api.js';
+import * as faceapi from '@vladmandic/face-api';
 import { cameraManager } from './CameraManager';
 import { eventBus } from './EventBus';
+
+/**
+ * Configuration for Face API Optimization
+ * Following strict performance constraints.
+ */
+const FACE_DETECTION_CONFIG = {
+    modelUrl: 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model',
+    detectIntervalMs: 1000, // 1s interval (Max detection frequency)
+    idleTimeoutMs: 60000,   // 1 minute idle threshold
+    tinyDetectorOptions: {
+        inputSize: 160,     // Reduced from default typical 320/416 for speed
+        scoreThreshold: 0.5
+    }
+};
 
 class ExpressionService {
     private isLoaded = false;
     private isRunning = false;
+    private intervalId: number | null = null;
+    private lastInteractionTime = Date.now();
+    private currentEmotion: { expression: string, probability: number } | null = null;
+
+    constructor() {
+        // Track user activity for idle detection
+        if (typeof window !== 'undefined') {
+            const updateActivity = () => { this.lastInteractionTime = Date.now(); };
+            window.addEventListener('mousemove', updateActivity);
+            window.addEventListener('keydown', updateActivity);
+            window.addEventListener('touchstart', updateActivity);
+        }
+    }
 
     public async initialize(): Promise<void> {
         if (this.isLoaded) return;
 
         try {
-            // Load models from a CDN or local public folder
-            // For this example, we use a CDN for simplicity, but in production, self-hosting is better.
-            const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+            console.log('😊 ExpressionService: Preparing backend...');
+            
+            // Explicitly set backend to avoid WASM MIME type issues in dev server
+            // and fallback to CPU if WebGL is unsupported.
+            const tf = faceapi.tf as any;
+            try {
+                await tf.setBackend('webgl');
+            } catch (e) {
+                console.warn('😊 ExpressionService: WebGL not available, falling back to CPU');
+                await tf.setBackend('cpu');
+            }
+            
+            await tf.ready();
+            console.log(`😊 ExpressionService: Using backend: ${tf.getBackend()}`);
 
-            await Promise.all([
-                faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-                faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),
-            ]);
+            console.log('😊 ExpressionService: Loading models (TinyFace + ExpressionNet)...');
+            
+            // Constraint: Only load allowed models
+            await faceapi.nets.tinyFaceDetector.loadFromUri(FACE_DETECTION_CONFIG.modelUrl);
+            await faceapi.nets.faceExpressionNet.loadFromUri(FACE_DETECTION_CONFIG.modelUrl);
 
             this.isLoaded = true;
-            console.log('😊 ExpressionService: Initialized');
+            console.log('😊 ExpressionService: Initialized successfully');
         } catch (error) {
-            console.error('😊 ExpressionService: Initialization failed', error);
+            console.error('😊 ExpressionService: Model load failed', error);
+            // Non-blocking error handling - app should continue without expressions
         }
     }
 
     public start(): void {
         if (!this.isLoaded) {
-            console.warn('😊 ExpressionService: Not initialized');
+            console.warn('😊 ExpressionService: Cannot start, models not loaded.');
             return;
         }
         if (this.isRunning) return;
 
         this.isRunning = true;
-        this.loop();
-        console.log('😊 ExpressionService: Started');
+        
+        // Constraint: Use setInterval instead of requestAnimationFrame
+        this.intervalId = window.setInterval(
+            this.detectLoop, 
+            FACE_DETECTION_CONFIG.detectIntervalMs
+        );
+        
+        console.log('😊 ExpressionService: Detection loop started');
     }
 
     public stop(): void {
         this.isRunning = false;
+        if (this.intervalId) {
+            clearInterval(this.intervalId);
+            this.intervalId = null;
+        }
         console.log('😊 ExpressionService: Stopped');
     }
 
-    private loop = async () => {
-        if (!this.isRunning) return;
+    /**
+     * Main detection loop
+     * Runs periodically to minimize CPU usage.
+     */
+    private detectLoop = async () => {
+        // 1. Check if we should skip detection
+        if (!this.shouldRunDetection()) return;
 
         const video = cameraManager.getVideoElement();
-        if (cameraManager.isReady()) {
-            try {
-                // options for Tiny Face Detector
-                const options = new faceapi.TinyFaceDetectorOptions();
+        if (!video || video.paused || video.ended) return;
 
-                const detections = await faceapi
-                    .detectSingleFace(video, options)
-                    .withFaceExpressions();
+        try {
+            // Constraint: Use TinyFaceDetector with 160px input
+            const options = new faceapi.TinyFaceDetectorOptions(FACE_DETECTION_CONFIG.tinyDetectorOptions);
 
-                if (detections) {
-                    const expressions = detections.expressions;
-                    // Find the dominant expression
-                    const sorted = Object.entries(expressions).sort((a, b) => b[1] - a[1]);
-                    const [expression, probability] = sorted[0];
+            const detection = await faceapi
+                .detectSingleFace(video, options)
+                .withFaceExpressions();
 
-                    if (probability > 0.5) {
-                        eventBus.emit('expression_detected', {
-                            expression: expression as string,
-                            probability: probability as number
-                        });
-                    }
-                }
-            } catch (e) {
-                console.error("Expression detection error", e);
+            if (detection) {
+                this.processExpressions(detection.expressions);
             }
+        } catch (error) {
+            // fail silently to avoid console spam during ephemeral errors
         }
-
-        // Run on next frame, but maybe throttle slightly if heavy
-        requestAnimationFrame(this.loop);
     };
+
+    /**
+     * Determines if detection should run based on system state
+     */
+    private shouldRunDetection(): boolean {
+        // Skip if tab is not focused
+        if (document.hidden) return false;
+
+        // Skip if user is idle
+        const isIdle = (Date.now() - this.lastInteractionTime) > FACE_DETECTION_CONFIG.idleTimeoutMs;
+        if (isIdle) return false;
+
+        return true;
+    }
+
+    /**
+     * Processes raw expression data and emits only relevant changes
+     */
+    private processExpressions(expressions: faceapi.FaceExpressions) {
+        // Sort and find dominant expression
+        const sorted = Object.entries(expressions).sort((a, b) => b[1] - a[1]);
+        const [expression, probability] = sorted[0];
+
+        // Filter out low confidence
+        if (probability < 0.5) return;
+
+        // Debounce/Stability check: Only emit if significantly different or if it's been a while
+        // For simplicity and responsiveness, we emit "dominant_emotion" updates.
+        // The consumer (UI) validates if it needs to update the DOM.
+        
+        // UX Rule: "Do not display raw emotion percentages" -> handled by UI, we just send data.
+        // We structure the payload to match requirements: dominant, confidence, timestamp.
+        
+        if (!this.currentEmotion || this.currentEmotion.expression !== expression || Math.abs(this.currentEmotion.probability - probability) > 0.1) {
+            this.currentEmotion = { expression, probability };
+            
+            eventBus.emit('expression_detected', {
+                expression: expression,
+                probability: probability,
+                timestamp: Date.now()
+            });
+        }
+    }
 }
 
 export const expressionService = new ExpressionService();

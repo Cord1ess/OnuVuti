@@ -12,7 +12,7 @@ class GestureService {
 
         try {
             const vision = await FilesetResolver.forVisionTasks(
-                'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm'
+                '/wasm' // Load from local public/wasm directory
             );
 
             this.gestureRecognizer = await GestureRecognizer.createFromOptions(vision, {

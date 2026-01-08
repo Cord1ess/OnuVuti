@@ -7,11 +7,11 @@ import { eventBus } from './EventBus';
  * Following strict performance constraints.
  */
 const FACE_DETECTION_CONFIG = {
-    modelUrl: 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model',
-    detectIntervalMs: 1000, // 1s interval (Max detection frequency)
-    idleTimeoutMs: 60000,   // 1 minute idle threshold
+    modelUrl: '/models', // Load from local public/models directory
+    detectIntervalMs: 1000, 
+    idleTimeoutMs: 60000,  
     tinyDetectorOptions: {
-        inputSize: 160,     // Reduced from default typical 320/416 for speed
+        inputSize: 160, 
         scoreThreshold: 0.5
     }
 };

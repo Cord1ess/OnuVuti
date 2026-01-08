@@ -49,22 +49,4 @@ export const useSpeech = () => {
   return { speak };
 };
 
-// Placeholder for MediaPipe Gesture Recognizer
-export const useGesture = () => {
-  const recognizeGesture = useCallback(async () => {
-    console.log('Gesture recognition placeholder');
-    return 'wave';
-  }, []);
 
-  return { recognizeGesture };
-};
-
-// Placeholder for face-api.js
-export const useEmotion = () => {
-  const recognizeEmotion = useCallback(async () => {
-    console.log('Emotion recognition placeholder');
-    return 'happy';
-  }, []);
-
-  return { recognizeEmotion };
-};

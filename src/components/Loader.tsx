@@ -22,7 +22,6 @@ const Loader = () => {
             <div className="w-5 h-[100%] bg-neo-accent animate-[bounce_1s_infinite_0.3s]"></div>
             <div className="w-5 h-[100%] bg-neo-accent animate-[bounce_1s_infinite_0.4s]"></div>
         </div>
-        <h1 className="text-neo-bg font-display font-bold text-6xl tracking-tighter italic">LOADING</h1>
     </div>
   );
 };

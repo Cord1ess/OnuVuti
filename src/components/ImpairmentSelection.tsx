@@ -8,27 +8,18 @@ const ImpairmentSelection = ({ onComplete }: { onComplete: () => void }) => {
   const { speak } = useSpeech();
 
   const options = [
-    { id: 'visual', emoji: '🙈', label: 'No See' },
-    { id: 'deaf', emoji: '🙉', label: 'No Hear' },
-    { id: 'mute', emoji: '🙊', label: 'No Say' },
+    { id: 'visual', label: 'Blind', emoji: '🙈' },
+    { id: 'deaf', label: 'Deaf', emoji: '🙉' },
+    { id: 'mute', label: 'Mute', emoji: '🙊' },
   ] as const;
 
+  const hoverColors = ['hover:bg-neo-blue', 'hover:bg-neo-main', 'hover:bg-neo-purple'];
+
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen px-4 pt-24">
-      <div className="relative mb-20">
-        <div className="absolute inset-0 bg-neo-black translate-x-3 translate-y-3"></div>
-        <div className="relative neo-border bg-neo-accent px-12 py-6 rotate-[-1deg]">
-          <h2 className="text-5xl md:text-7xl font-heavy text-center uppercase tracking-tighter italic text-neo-black">
-            WHO ARE YOU?
-          </h2>
-        </div>
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-12 w-full max-w-7xl">
+    <div className="flex flex-col items-center justify-center min-h-screen px-4 pt-20">
+      <div className="grid grid-cols-3 gap-8 w-full max-w-4xl px-8">
         {options.map((option, index) => {
           const isSelected = selectedImpairments.includes(option.id);
-          const bgColors = ['bg-neo-main', 'bg-neo-purple', 'bg-neo-blue'];
-          const textColors = ['text-neo-white', 'text-neo-white', 'text-neo-white'];
           return (
             <button
               key={option.id}
@@ -37,21 +28,22 @@ const ImpairmentSelection = ({ onComplete }: { onComplete: () => void }) => {
                 vibrateShort();
                 speak(`Selected ${option.label}`);
               }}
+              onMouseEnter={() => window.dispatchEvent(new CustomEvent('show-cursor-gif'))}
+              onMouseLeave={() => window.dispatchEvent(new CustomEvent('hide-cursor-gif'))}
               className={`
-                service-card relative group transition-all duration-300 transform
+                relative group transition-all duration-300 transform
+                aspect-square
                 ${isSelected ? 'scale-[1.05]' : 'hover:-translate-y-2'}
               `}
             >
-              <div className="absolute inset-0 bg-neo-black translate-x-4 translate-y-4 transition-transform group-hover:translate-x-6 group-hover:translate-y-6"></div>
+              <div className="absolute inset-0 bg-neo-black translate-x-2 translate-y-2 transition-transform group-hover:translate-x-4 group-hover:translate-y-4"></div>
               <div className={`
-                relative neo-border p-12 flex flex-col items-center justify-center gap-8 h-[400px]
-                ${isSelected ? 'bg-neo-accent !text-neo-black' : bgColors[index] + ' ' + textColors[index]}
+                relative neo-border w-full h-full flex items-center justify-center
+                transition-colors duration-200
+                ${isSelected ? 'bg-neo-accent' : `bg-neo-bg ${hoverColors[index % 3]}`}
               `}>
-                <span className="text-9xl drop-shadow-neo transition-transform group-hover:scale-110 animate-float">
+                <span className="text-7xl md:text-8xl transition-transform group-hover:scale-110 drop-shadow-sm select-none">
                   {option.emoji}
-                </span>
-                <span className={`text-4xl font-heavy uppercase tracking-widest transition-colors ${isSelected ? 'text-neo-black' : 'text-outline-white group-hover:text-neo-white'}`}>
-                  {option.label}
                 </span>
               </div>
             </button>
@@ -71,13 +63,13 @@ const ImpairmentSelection = ({ onComplete }: { onComplete: () => void }) => {
         }}
         disabled={selectedImpairments.length === 0}
         className={`
-          mt-24 relative group
+          mt-16 relative group
           ${selectedImpairments.length === 0 ? 'opacity-30 grayscale cursor-not-none' : ''}
         `}
       >
-        <div className="absolute inset-0 bg-neo-black translate-x-4 translate-y-4 group-hover:translate-x-6 group-hover:translate-y-6 transition-transform"></div>
-        <div className="relative neo-border bg-neo-main px-20 py-10 font-heavy text-5xl text-neo-white hover:-translate-y-2 hover:-translate-x-2 transition-transform active:translate-x-2 active:translate-y-2">
-          GO LIVE →
+        <div className="absolute inset-0 bg-neo-black translate-x-2 translate-y-2 group-hover:translate-x-4 group-hover:translate-y-4 transition-transform"></div>
+        <div className="relative neo-border bg-neo-main px-12 py-6 font-heavy text-3xl text-neo-white hover:-translate-y-1 hover:-translate-x-1 transition-transform active:translate-x-1 active:translate-y-1 uppercase italic tracking-tighter">
+          ON AIR →
         </div>
       </button>
     </div>

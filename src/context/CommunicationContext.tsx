@@ -63,6 +63,17 @@ export const CommunicationProvider = ({ children }: { children: ReactNode }) => 
 
     socketRef.current.on('connect', () => {
       console.log('✅ Connected to Resonance Server');
+      const roomId = 'resonance-alpha';
+      roomRef.current = roomId;
+      const myImpairments = [];
+      if (isVisuallyImpaired) myImpairments.push('visual');
+      if (isDeaf) myImpairments.push('deaf');
+      if (isMute) myImpairments.push('mute');
+
+      socketRef.current?.emit('join_resonance', { 
+          roomId, 
+          profile: { impairments: myImpairments } 
+      });
     });
 
     socketRef.current.on('connect_error', () => {
@@ -105,10 +116,13 @@ export const CommunicationProvider = ({ children }: { children: ReactNode }) => 
     });
 
     return () => {
-      socketRef.current?.disconnect();
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
       mediatorAgent.stop();
     };
-  }, [triggerGlitch, triggerEnergy, status]);
+  }, [triggerGlitch, triggerEnergy]); // Removed 'status' dependency to prevent reconnection on state change
 
   const disconnect = useCallback(() => {
     socketRef.current?.disconnect();
@@ -124,24 +138,22 @@ export const CommunicationProvider = ({ children }: { children: ReactNode }) => 
     setPeer(null);
     setMessages([]);
 
-    const roomId = 'resonance-alpha'; 
-    roomRef.current = roomId;
-    
-    const myImpairments = [];
-    if (isVisuallyImpaired) myImpairments.push('visual');
-    if (isDeaf) myImpairments.push('deaf');
-    if (isMute) myImpairments.push('mute');
+    if (socketRef.current?.connected) {
+      // If already connected, just join
+      const roomId = 'resonance-alpha';
+      roomRef.current = roomId;
+      const myImpairments = [];
+      if (isVisuallyImpaired) myImpairments.push('visual');
+      if (isDeaf) myImpairments.push('deaf');
+      if (isMute) myImpairments.push('mute');
 
-    if (!socketRef.current?.connected) {
+      socketRef.current.emit('join_resonance', { 
+          roomId: 'resonance-alpha', 
+          profile: { impairments: myImpairments } 
+      });
+    } else {
       socketRef.current?.connect();
     }
-
-    // Emit join signal with profile
-    socketRef.current?.emit('join_resonance', { 
-        roomId, 
-        profile: { impairments: myImpairments } 
-    });
-
   }, [isVisuallyImpaired, isDeaf, isMute]);
 
   const sendMessage = useCallback((type: Message['type'], payload: string) => {

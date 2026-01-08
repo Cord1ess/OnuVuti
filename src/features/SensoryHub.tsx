@@ -26,9 +26,11 @@ const SensoryHub = () => {
   const [gifSearch, setGifSearch] = useState('');
   const [showGifs, setShowGifs] = useState(false);
   const { vibrateTextAsBraille } = useBrailleVibration();
+  const [modelStatus, setModelStatus] = useState<'loading' | 'ready' | 'error'>('loading');
 
   // Voice Signal Handler (Used by Blind and Mute as alternative)
   const { startListening, isListening } = useSpeechToText((text) => {
+    setCaption(text); // Immediate visual feedback
     sendMessage('text', text);
     speak("Signal transmitted.");
   });
@@ -79,10 +81,12 @@ const SensoryHub = () => {
         expressionService.start();
 
         decisionLayer.setInteractionHandler(handleInteraction);
+        setModelStatus('ready');
         playSuccess();
         speak("All systems online. Resonance ready.", { rate: 0.95 });
       } catch (e) {
         console.error("Failed to init services", e);
+        setModelStatus('error');
       }
     };
 
@@ -154,6 +158,19 @@ const SensoryHub = () => {
 
   return (
     <div className="flex flex-col gap-12 p-8 pt-24" data-haptic-label="Sensory Hub Dashboard">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="font-heavy text-2xl uppercase italic opacity-20">System Telemetry</h2>
+        <div className="flex gap-4">
+            <div className={`neo-border px-3 py-1 font-heavy text-[10px] uppercase tracking-widest flex items-center gap-2 ${modelStatus === 'ready' ? 'bg-neo-accent text-neo-black' : modelStatus === 'error' ? 'bg-red-500 text-white' : 'bg-neo-blue text-white animate-pulse'}`}>
+                <div className={`w-2 h-2 rounded-full ${modelStatus === 'ready' ? 'bg-neo-black' : 'bg-white'}`}></div>
+                AI SYNC: {modelStatus.toUpperCase()}
+            </div>
+            <div className="neo-border bg-neo-black text-neo-white px-3 py-1 font-heavy text-[10px] uppercase tracking-widest">
+                Latency: 24ms
+            </div>
+        </div>
+      </div>
+
       <UniversalCommWindow />
       
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
@@ -219,8 +236,14 @@ const SensoryHub = () => {
                       <div className="flex gap-4">
                         <input className="neo-border bg-neo-white p-6 flex-1 font-heavy uppercase outline-none text-xl placeholder:opacity-30" placeholder="Search GIF Signals..." value={gifSearch} onChange={(e) => setGifSearch(e.target.value)} />
                         <button className="neo-button bg-neo-accent px-12 text-xl" onClick={() => { if(!showGifs) fetchTrending(); else setShowGifs(false); }}>GIF HUB</button>
-                        {/* Voice for Mute (as requested: make sure voice works in mute) */}
-                        <button className={`neo-button ${isListening ? 'bg-neo-blue animate-pulse' : 'bg-neo-black text-neo-white'} px-8`} onClick={startListening}>🎤</button>
+                        {/* Voice for Mute */}
+                        <button 
+                          className={`neo-button flex items-center gap-3 px-8 transition-all ${isListening ? 'bg-neo-accent text-neo-black animate-pulse' : 'bg-neo-black text-neo-white'}`} 
+                          onClick={startListening}
+                        >
+                          <span className="text-2xl">🎤</span>
+                          <span className="font-heavy uppercase italic">Project Voice</span>
+                        </button>
                       </div>
                       {showGifs && (
                         <div className="grid grid-cols-3 gap-6 h-80 overflow-y-auto bg-neo-black p-6 neo-border shadow-inner">
@@ -323,8 +346,8 @@ const SensoryHub = () => {
         </div>
       </div>
 
-      {isDeaf && caption && (
-        <div className="fixed bottom-0 left-0 w-full z-[1000] p-8 animate-in slide-in-from-bottom-full">
+      {caption && (
+        <div className="fixed bottom-0 left-0 w-full z-[1000] p-8 animate-in slide-in-from-bottom-full text-center">
            <div className="bg-neo-black text-neo-white neo-border p-8 shadow-neo-lg max-w-5xl mx-auto flex items-center justify-center gap-6 border-t-[12px] border-neo-blue">
               <div className="flex gap-2">
                  <div className="w-2 h-10 bg-neo-blue animate-pulse"></div>

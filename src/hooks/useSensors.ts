@@ -1,4 +1,4 @@
-import { useCallback, useRef, useEffect } from 'react';
+import { useCallback, useRef, useEffect, useState } from 'react';
 import { useAccessibility } from '../context/AccessibilityContext';
 import { eventBus } from '../features/EventBus';
 
@@ -102,7 +102,7 @@ export const useSound = () => {
 
 // 🎙️ Voice-to-Text for Blind Users
 export const useSpeechToText = (onResult: (text: string) => void) => {
-  const isListeningRef = useRef(false);
+  const [isListening, setIsListening] = useState(false);
 
   const startListening = useCallback(() => {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
@@ -117,7 +117,7 @@ export const useSpeechToText = (onResult: (text: string) => void) => {
     recognition.maxAlternatives = 1;
 
     recognition.onstart = () => {
-      isListeningRef.current = true;
+      setIsListening(true);
       console.log('🎤 Listening...');
     };
 
@@ -127,17 +127,17 @@ export const useSpeechToText = (onResult: (text: string) => void) => {
     };
 
     recognition.onerror = () => {
-      isListeningRef.current = false;
+      setIsListening(false);
     };
 
     recognition.onend = () => {
-      isListeningRef.current = false;
+      setIsListening(false);
     };
 
     recognition.start();
   }, [onResult]);
 
-  return { startListening, isListening: isListeningRef.current };
+  return { startListening, isListening };
 };
 
 // 📳 Braille Vibration Engine for Deaf Users

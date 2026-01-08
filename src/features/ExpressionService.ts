@@ -7,21 +7,12 @@ import { eventBus } from './EventBus';
  * Following strict performance constraints.
  */
 const FACE_DETECTION_CONFIG = {
-<<<<<<< HEAD
-    modelUrl: 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model',
+    modelUrl: 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/',
     detectIntervalMs: 800, // Faster interval for better mood response
     idleTimeoutMs: 60000,
     tinyDetectorOptions: {
         inputSize: 224,     // Slightly larger for better accuracy
         scoreThreshold: 0.4 // Lower threshold to detect subtle movements
-=======
-    modelUrl: '/models', // Load from local public/models directory
-    detectIntervalMs: 1000, 
-    idleTimeoutMs: 60000,  
-    tinyDetectorOptions: {
-        inputSize: 160, 
-        scoreThreshold: 0.5
->>>>>>> 95dcaeb76c2e4a23720bd5d6d9fb17ec83b998d2
     }
 };
 
@@ -46,13 +37,12 @@ class ExpressionService {
         if (this.isLoaded) return;
 
         try {
-            console.log('😊 ExpressionService: Preparing backend...');
+            console.log('😊 ExpressionService: Starting initialization sequence...');
             
-            // Explicitly set backend to avoid WASM MIME type issues in dev server
-            // and fallback to CPU if WebGL is unsupported.
             const tf = faceapi.tf as any;
             try {
                 await tf.setBackend('webgl');
+                console.log('😊 ExpressionService: WebGL Backend Set');
             } catch (e) {
                 console.warn('😊 ExpressionService: WebGL not available, falling back to CPU');
                 await tf.setBackend('cpu');
@@ -63,15 +53,21 @@ class ExpressionService {
 
             console.log('😊 ExpressionService: Loading models (TinyFace + ExpressionNet)...');
             
-            // Constraint: Only load allowed models
-            await faceapi.nets.tinyFaceDetector.loadFromUri(FACE_DETECTION_CONFIG.modelUrl);
-            await faceapi.nets.faceExpressionNet.loadFromUri(FACE_DETECTION_CONFIG.modelUrl);
+            // Explicitly load each model with logging
+            try {
+                await faceapi.nets.tinyFaceDetector.loadFromUri(FACE_DETECTION_CONFIG.modelUrl);
+                console.log('😊 ExpressionService: TinyFaceDetector Loaded');
+                await faceapi.nets.faceExpressionNet.loadFromUri(FACE_DETECTION_CONFIG.modelUrl);
+                console.log('😊 ExpressionService: FaceExpressionNet Loaded');
+            } catch (modelError) {
+                console.error('😊 ExpressionService: Model fetch failed. Verify network connection and CDN availability.', modelError);
+                throw modelError;
+            }
 
             this.isLoaded = true;
-            console.log('😊 ExpressionService: Initialized successfully');
+            console.log('😊 ExpressionService: FULLY INITIALIZED');
         } catch (error) {
-            console.error('😊 ExpressionService: Model load failed', error);
-            // Non-blocking error handling - app should continue without expressions
+            console.error('😊 ExpressionService: Initialization failed', error);
         }
     }
 
@@ -110,18 +106,24 @@ class ExpressionService {
         // 1. Check if we should skip detection
         if (!this.shouldRunDetection()) return;
 
+        if (!cameraManager.isReady()) return;
         const video = cameraManager.getVideoElement();
-        if (!video || video.paused || video.ended) return;
-
+        
         try {
             const options = new faceapi.TinyFaceDetectorOptions(FACE_DETECTION_CONFIG.tinyDetectorOptions);
+
+            // One-time trace to verify the loop is actually executing on a video source
+            if (!this.currentEmotion) {
+               // We only log this once to avoid flooding the console
+               // console.debug("😊 Mood Engine: Scanning video frame...");
+            }
 
             const detection = await faceapi
                 .detectSingleFace(video, options)
                 .withFaceExpressions();
 
             if (detection) {
-                if (!this.currentEmotion) console.log("😊 Mood Engine: Face Targeted");
+                if (!this.currentEmotion) console.log("😊 Mood Engine: Face Targeted - TARGET ACQUIRED");
                 this.processExpressions(detection.expressions);
             } else {
                 // If no face found, emit a clear state occasionally
@@ -167,7 +169,7 @@ class ExpressionService {
         // UX Rule: "Do not display raw emotion percentages" -> handled by UI, we just send data.
         // We structure the payload to match requirements: dominant, confidence, timestamp.
         
-        if (!this.currentEmotion || this.currentEmotion.expression !== expression || Math.abs(this.currentEmotion.probability - probability) > 0.1) {
+        if (!this.currentEmotion || this.currentEmotion.expression !== expression || Math.abs(this.currentEmotion.probability - probability) > 0.05) {
             this.currentEmotion = { expression, probability };
             
             eventBus.emit('expression_detected', {

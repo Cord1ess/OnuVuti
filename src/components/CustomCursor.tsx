@@ -1,46 +1,91 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import pointerNormal from '../assets/Pointer.svg';
+import pointerClick from '../assets/Pointer On Click.svg';
+import introGif from '../assets/Introduction Gif.gif';
 
 const CustomCursor = () => {
-  const [position, setPosition] = useState({ x: 0, y: 0 });
-  const [isHovering, setIsHovering] = useState(false);
+  const cursorRef = useRef<HTMLDivElement>(null);
+  const [isClicking, setIsClicking] = useState(false);
+  const [showGif, setShowGif] = useState(false);
 
   useEffect(() => {
+    const cursor = cursorRef.current;
+    if (!cursor) return;
+
+    // Force cursor: none on the entire document and all sub-elements
+    const style = document.createElement('style');
+    style.innerHTML = `
+      * { 
+        cursor: none !important; 
+      }
+      body {
+        cursor: none !important;
+      }
+    `;
+    document.head.appendChild(style);
+
     const onMouseMove = (e: MouseEvent) => {
-      setPosition({ x: e.clientX, y: e.clientY });
+      // Direct positioning for absolute zero lag
+      if (cursor) {
+        cursor.style.transform = `translate3d(${e.clientX}px, ${e.clientY}px, 0)`;
+      }
     };
 
-    const onMouseEnter = () => setIsHovering(true);
-    const onMouseLeave = () => setIsHovering(false);
+    const onMouseDown = () => setIsClicking(true);
+    const onMouseUp = () => setIsClicking(false);
 
-    window.addEventListener('mousemove', onMouseMove);
+    const handleShowGif = () => setShowGif(true);
+    const handleHideGif = () => setShowGif(false);
+
+    window.addEventListener('mousemove', onMouseMove, { passive: true });
+    window.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('mouseup', onMouseUp);
     
-    const interactables = document.querySelectorAll('button, a, .interactive');
-    interactables.forEach(el => {
-      el.addEventListener('mouseenter', onMouseEnter);
-      el.addEventListener('mouseleave', onMouseLeave);
-    });
+    // Custom events for gif preview
+    window.addEventListener('show-cursor-gif', handleShowGif);
+    window.addEventListener('hide-cursor-gif', handleHideGif);
 
     return () => {
       window.removeEventListener('mousemove', onMouseMove);
-      interactables.forEach(el => {
-        el.removeEventListener('mouseenter', onMouseEnter);
-        el.removeEventListener('mouseleave', onMouseLeave);
-      });
+      window.removeEventListener('mousedown', onMouseDown);
+      window.removeEventListener('mouseup', onMouseUp);
+      window.removeEventListener('show-cursor-gif', handleShowGif);
+      window.removeEventListener('hide-cursor-gif', handleHideGif);
+      document.head.removeChild(style);
     };
   }, []);
 
   return (
     <div
-      id="cursor"
-      className="fixed top-0 left-0 w-6 h-6 bg-neo-black pointer-events-none z-[9999] mix-blend-difference transition-all duration-200 ease-out"
+      ref={cursorRef}
+      id="custom-cursor"
+      className="fixed top-0 left-0 pointer-events-none z-[999999] will-change-transform"
       style={{
-        transform: `translate(-50%, -50%) translate(${position.x}px, ${position.y}px)`,
-        width: isHovering ? '60px' : '24px',
-        height: isHovering ? '60px' : '24px',
-        backgroundColor: isHovering ? '#A3FF00' : '#0f0f0f',
-        clipPath: isHovering ? 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)' : 'none',
+        transform: 'translate3d(0, 0, 0)',
+        left: 0,
+        top: 0
       }}
-    />
+    >
+      <div className="relative">
+        {/* GIF Preview Box */}
+        <div className={`
+          absolute bottom-full left-full mb-4 ml-4 transition-all duration-300 transform origin-bottom-left
+          ${showGif ? 'scale-100 opacity-100' : 'scale-0 opacity-0'}
+        `}>
+          <div className="neo-border bg-neo-white p-1 w-40 h-40 overflow-hidden shadow-neo-sm">
+            <img src={introGif} alt="Intro preview" className="w-full h-full object-cover" />
+          </div>
+        </div>
+
+        {/* Cursor Icon */}
+        <img 
+          src={isClicking ? pointerClick : pointerNormal} 
+          alt="cursor"
+          className="w-12 h-12 object-contain"
+          draggable="false"
+        />
+      </div>
+    </div>
   );
 };
 

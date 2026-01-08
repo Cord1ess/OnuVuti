@@ -19,6 +19,7 @@ export default {
         'display': ['"Syne"', 'sans-serif'],
         'body': ['"Space Grotesk"', 'sans-serif'],
         'heavy': ['"Archivo Black"', 'sans-serif'],
+        'bangla': ['"Anek Bangla"', 'sans-serif'],
       },
       boxShadow: {
         'neo': '8px 8px 0px 0px #0f0f0f',

@@ -33,9 +33,10 @@ const CameraPreview: React.FC = () => {
         happy: '😊', sad: '😢', angry: '😠', surprised: '😮', 
         disgusted: '🤢', fearful: '😨', neutral: '😐'
       };
+      
       setExpression({
-        label: data.expression.toUpperCase(),
-        emoji: map[data.expression] || '😐'
+        label: data.probability === 0 ? 'NEUTRAL' : data.expression.toUpperCase(),
+        emoji: data.probability === 0 ? '😐' : (map[data.expression] || '😐')
       });
     };
 
@@ -107,13 +108,15 @@ const CameraPreview: React.FC = () => {
                </div>
             )}
 
-            <div className="neo-border bg-neo-white p-4 flex items-center gap-6 transform -rotate-1 group-hover:rotate-0 transition-transform w-full">
+            <div className={`neo-border bg-neo-white p-4 flex items-center gap-6 transform -rotate-1 group-hover:rotate-0 transition-transform w-full ${expression.label === 'NEUTRAL' ? 'opacity-40' : ''}`}>
               <div className="text-5xl">
                 <Emoji char={expression.emoji} />
               </div>
               <div>
                 <p className="text-xs font-heavy text-neo-black opacity-50 uppercase tracking-tighter">Current Mood</p>
-                <p className="text-3xl font-heavy text-neo-black uppercase leading-none">{expression.label}</p>
+                <p className="text-3xl font-heavy text-neo-black uppercase leading-none">
+                    {expression.label === 'NEUTRAL' ? 'Scanning...' : expression.label}
+                </p>
               </div>
             </div>
           </div>

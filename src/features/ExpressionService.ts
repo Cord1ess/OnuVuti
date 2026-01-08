@@ -8,11 +8,11 @@ import { eventBus } from './EventBus';
  */
 const FACE_DETECTION_CONFIG = {
     modelUrl: 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model',
-    detectIntervalMs: 1000, // 1s interval (Max detection frequency)
-    idleTimeoutMs: 60000,   // 1 minute idle threshold
+    detectIntervalMs: 800, // Faster interval for better mood response
+    idleTimeoutMs: 60000,
     tinyDetectorOptions: {
-        inputSize: 160,     // Reduced from default typical 320/416 for speed
-        scoreThreshold: 0.5
+        inputSize: 224,     // Slightly larger for better accuracy
+        scoreThreshold: 0.4 // Lower threshold to detect subtle movements
     }
 };
 
@@ -105,7 +105,6 @@ class ExpressionService {
         if (!video || video.paused || video.ended) return;
 
         try {
-            // Constraint: Use TinyFaceDetector with 160px input
             const options = new faceapi.TinyFaceDetectorOptions(FACE_DETECTION_CONFIG.tinyDetectorOptions);
 
             const detection = await faceapi
@@ -113,10 +112,17 @@ class ExpressionService {
                 .withFaceExpressions();
 
             if (detection) {
+                if (!this.currentEmotion) console.log("😊 Mood Engine: Face Targeted");
                 this.processExpressions(detection.expressions);
+            } else {
+                // If no face found, emit a clear state occasionally
+                if (this.currentEmotion) {
+                   this.currentEmotion = null;
+                   eventBus.emit('expression_detected', { expression: 'neutral', probability: 0, timestamp: Date.now() });
+                }
             }
         } catch (error) {
-            // fail silently to avoid console spam during ephemeral errors
+            console.error("😊 Expression Loop Error:", error);
         }
     };
 
@@ -142,8 +148,8 @@ class ExpressionService {
         const sorted = Object.entries(expressions).sort((a, b) => b[1] - a[1]);
         const [expression, probability] = sorted[0];
 
-        // Filter out low confidence
-        if (probability < 0.5) return;
+        // Filter out low confidence - Lowered to 0.4 to match detector sensitivity
+        if (probability < 0.4) return;
 
         // Debounce/Stability check: Only emit if significantly different or if it's been a while
         // For simplicity and responsiveness, we emit "dominant_emotion" updates.

@@ -102,10 +102,13 @@ const SensoryHub = () => {
       
       setExpression(prev => {
         if (prev.label.toLowerCase() === data.expression) return prev;
-        speak(`Detecting ${data.expression}`, { rate: 1.1 });
-        mediatorAgent.amplifySignal(data.expression);
         return { label: data.expression.toUpperCase(), emoji: map[data.expression] || '😐' };
       });
+      
+      if (data.expression !== 'neutral' && data.probability > 0.4) {
+        speak(`Feeling ${data.expression}`, { rate: 1.1 });
+        mediatorAgent.amplifySignal(data.expression);
+      }
     };
 
     eventBus.on('expression_detected', handleExpression);
@@ -253,15 +256,17 @@ const SensoryHub = () => {
             </div>
           </div>
 
-          {!isVisuallyImpaired && !isDeaf && (
+          {!isVisuallyImpaired && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
               <div className="relative group overflow-hidden">
                 <div className="absolute inset-0 bg-neo-black translate-x-4 translate-y-4"></div>
                 <div className="relative neo-border bg-neo-main p-8 h-full">
                   <h3 className="font-heavy text-4xl uppercase mb-6 text-neo-accent italic">Mood Context</h3>
-                  <div className="bg-neo-accent neo-border p-8 flex flex-col items-center justify-center group-hover:rotate-2 transition-transform">
+                  <div className={`bg-neo-accent neo-border p-8 flex flex-col items-center justify-center group-hover:rotate-2 transition-transform ${expression.label === 'NEUTRAL' ? 'opacity-40 animate-pulse' : ''}`}>
                     <span className="text-9xl mb-4">{expression.emoji}</span>
-                    <span className="text-3xl font-heavy uppercase tracking-widest text-neo-black">{expression.label}</span>
+                    <span className="text-3xl font-heavy uppercase tracking-widest text-neo-black">
+                        {expression.label === 'NEUTRAL' ? 'Scanning...' : expression.label}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -312,7 +317,7 @@ const SensoryHub = () => {
           <div className="relative clip-corner">
             <div className="absolute inset-0 bg-neo-black translate-x-3 translate-y-3"></div>
             <div className="relative neo-border bg-neo-black text-neo-white p-12 overflow-hidden group">
-              <div className="text-7xl font-heavy italic text-outline-white animate-pulse text-center">অনুতি</div>
+              <div className="text-7xl font-heavy italic text-outline-white animate-pulse text-center">অনুভূতি</div>
             </div>
           </div>
         </div>

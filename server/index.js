@@ -46,17 +46,31 @@ app.get('/api/tenor/trending', async (req, res) => {
   }
 });
 
+const rooms = new Map();
+
 io.on('connection', (socket) => {
-  console.log('👤 User Connected:', socket.id);
+  console.log('👤 Connected:', socket.id);
 
   socket.on('join_resonance', (data) => {
-    // data: { roomId, profile: { impairments } }
     const { roomId, profile } = data;
     socket.join(roomId);
-    console.log(`🌌 User ${socket.id} joined room: ${roomId}`);
+    socket.profile = profile;
     
-    // Broadcast join with profile
-    socket.to(roomId).emit('peer_joined', { id: socket.id, profile });
+    console.log(`🌌 ${socket.id} joined ${roomId}`);
+
+    // Robust Pairing: Get all existing peers in the room
+    const clients = io.sockets.adapter.rooms.get(roomId);
+    if (clients) {
+      clients.forEach((clientId) => {
+        if (clientId !== socket.id) {
+          const clientSocket = io.sockets.sockets.get(clientId);
+          // Tell the newcomer about existing peer
+          socket.emit('peer_joined', { id: clientId, profile: clientSocket?.profile });
+          // Tell the existing peer about newcomer
+          clientSocket?.emit('peer_joined', { id: socket.id, profile: socket.profile });
+        }
+      });
+    }
   });
 
   socket.on('send_signal', (data) => {
@@ -64,7 +78,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    console.log('👤 User Disconnected:', socket.id);
+    console.log('👤 Disconnected:', socket.id);
   });
 });
 

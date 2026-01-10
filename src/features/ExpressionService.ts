@@ -8,11 +8,11 @@ import { eventBus } from './EventBus';
  */
 const FACE_DETECTION_CONFIG = {
     modelUrl: 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/',
-    detectIntervalMs: 800, // Faster interval for better mood response
-    idleTimeoutMs: 60000,
+    detectIntervalMs: 250, 
+    idleTimeoutMs: 2147483647,
     tinyDetectorOptions: {
-        inputSize: 224,     // Slightly larger for better accuracy
-        scoreThreshold: 0.4 // Lower threshold to detect subtle movements
+        inputSize: 320,      // Sweet spot for mobile (320px)
+        scoreThreshold: 0.2  // Permissive detection
     }
 };
 
@@ -27,9 +27,9 @@ class ExpressionService {
         // Track user activity for idle detection
         if (typeof window !== 'undefined') {
             const updateActivity = () => { this.lastInteractionTime = Date.now(); };
-            window.addEventListener('mousemove', updateActivity);
-            window.addEventListener('keydown', updateActivity);
+            window.addEventListener('scroll', updateActivity); // Better for mobile
             window.addEventListener('touchstart', updateActivity);
+            window.addEventListener('click', updateActivity);
         }
     }
 
@@ -41,10 +41,11 @@ class ExpressionService {
             
             const tf = faceapi.tf as any;
             try {
-                await tf.setBackend('webgl');
-                console.log('😊 ExpressionService: WebGL Backend Set');
+                // Default to WebGL - standard for face-api.js
+                await tf.setBackend('webgl'); 
+                console.log('😊 ExpressionService: Backend set to WebGL');
             } catch (e) {
-                console.warn('😊 ExpressionService: WebGL not available, falling back to CPU');
+                console.warn('😊 ExpressionService: WebGL failed, trying CPU');
                 await tf.setBackend('cpu');
             }
             
@@ -54,11 +55,13 @@ class ExpressionService {
             console.log('😊 ExpressionService: Loading models (TinyFace + ExpressionNet)...');
             
             // Explicitly load each model with logging
+            // Parallel Loading for faster startup
             try {
-                await faceapi.nets.tinyFaceDetector.loadFromUri(FACE_DETECTION_CONFIG.modelUrl);
-                console.log('😊 ExpressionService: TinyFaceDetector Loaded');
-                await faceapi.nets.faceExpressionNet.loadFromUri(FACE_DETECTION_CONFIG.modelUrl);
-                console.log('😊 ExpressionService: FaceExpressionNet Loaded');
+                const p1 = faceapi.nets.tinyFaceDetector.loadFromUri(FACE_DETECTION_CONFIG.modelUrl);
+                const p2 = faceapi.nets.faceExpressionNet.loadFromUri(FACE_DETECTION_CONFIG.modelUrl);
+                
+                await Promise.all([p1, p2]);
+                console.log('😊 ExpressionService: All models loaded concurrently');
             } catch (modelError) {
                 console.error('😊 ExpressionService: Model fetch failed. Verify network connection and CDN availability.', modelError);
                 throw modelError;
@@ -98,35 +101,47 @@ class ExpressionService {
         console.log('😊 ExpressionService: Stopped');
     }
 
+    private isDetecting = false; // Semaphore to prevent overlapping calls
+
     /**
      * Main detection loop
      * Runs periodically to minimize CPU usage.
      */
     private detectLoop = async () => {
-        // 1. Check if we should skip detection
-        if (!this.shouldRunDetection()) return;
+        // 0. Prevent overlap (CPU choke fix)
+        if (this.isDetecting) return;
+        this.isDetecting = true;
 
-        if (!cameraManager.isReady()) return;
+        // 1. Check if we should skip detection
+        if (!this.shouldRunDetection()) {
+            this.isDetecting = false; 
+            return;
+        }
+
+        if (!cameraManager.isReady()) {
+            this.isDetecting = false;
+            return;
+        }
         const video = cameraManager.getVideoElement();
         
+        if (video.videoWidth === 0 || video.videoHeight === 0) {
+            this.isDetecting = false;
+            return;
+        }
+
         try {
             const options = new faceapi.TinyFaceDetectorOptions(FACE_DETECTION_CONFIG.tinyDetectorOptions);
-
-            // One-time trace to verify the loop is actually executing on a video source
-            if (!this.currentEmotion) {
-               // We only log this once to avoid flooding the console
-               // console.debug("😊 Mood Engine: Scanning video frame...");
-            }
 
             const detection = await faceapi
                 .detectSingleFace(video, options)
                 .withFaceExpressions();
 
             if (detection) {
-                if (!this.currentEmotion) console.log("😊 Mood Engine: Face Targeted - TARGET ACQUIRED");
+                // console.log("😊 Mood Engine: Face DETECTED", detection.expressions);
                 this.processExpressions(detection.expressions);
             } else {
-                // If no face found, emit a clear state occasionally
+                // console.log("😊 Mood Engine: Detection loop ran, but NO FACE found.");
+                
                 if (this.currentEmotion) {
                    this.currentEmotion = null;
                    eventBus.emit('expression_detected', { expression: 'neutral', probability: 0, timestamp: Date.now() });
@@ -134,6 +149,8 @@ class ExpressionService {
             }
         } catch (error) {
             console.error("😊 Expression Loop Error:", error);
+        } finally {
+            this.isDetecting = false;
         }
     };
 
@@ -159,8 +176,8 @@ class ExpressionService {
         const sorted = Object.entries(expressions).sort((a, b) => b[1] - a[1]);
         const [expression, probability] = sorted[0];
 
-        // Filter out low confidence - Lowered to 0.4 to match detector sensitivity
-        if (probability < 0.4) return;
+        // Filter out low confidence
+        if (probability < 0.2) return;
 
         // Debounce/Stability check: Only emit if significantly different or if it's been a while
         // For simplicity and responsiveness, we emit "dominant_emotion" updates.
@@ -169,7 +186,7 @@ class ExpressionService {
         // UX Rule: "Do not display raw emotion percentages" -> handled by UI, we just send data.
         // We structure the payload to match requirements: dominant, confidence, timestamp.
         
-        if (!this.currentEmotion || this.currentEmotion.expression !== expression || Math.abs(this.currentEmotion.probability - probability) > 0.05) {
+        if (!this.currentEmotion || this.currentEmotion.expression !== expression || Math.abs(this.currentEmotion.probability - probability) > 0.02) {
             this.currentEmotion = { expression, probability };
             
             eventBus.emit('expression_detected', {

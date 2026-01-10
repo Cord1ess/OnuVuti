@@ -31,7 +31,9 @@ interface CommunicationContextType {
   sendMessage: (type: Message['type'], payload: string) => void;
 }
 
-const SOCKET_URL = 'http://localhost:3001';
+const SOCKET_URL = typeof window !== 'undefined' 
+  ? `http://${window.location.hostname}:3001` 
+  : 'http://localhost:3001';
 const CommunicationContext = createContext<CommunicationContextType | undefined>(undefined);
 
 export const CommunicationProvider = ({ children }: { children: ReactNode }) => {

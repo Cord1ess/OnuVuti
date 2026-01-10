@@ -41,7 +41,8 @@ const SensoryHub = () => {
     const timer = setTimeout(async () => {
         if (!gifSearch) return;
         try {
-            const res = await fetch(`http://localhost:3001/api/tenor/search?q=${gifSearch}&limit=9`);
+            const baseUrl = `http://${window.location.hostname}:3001`;
+            const res = await fetch(`${baseUrl}/api/tenor/search?q=${gifSearch}&limit=9`);
             const data = await res.json();
             setGifs(data.results || []);
         } catch (e) {
@@ -53,7 +54,8 @@ const SensoryHub = () => {
 
   const fetchTrending = async () => {
     try {
-        const res = await fetch(`http://localhost:3001/api/tenor/trending?limit=9`);
+        const baseUrl = `http://${window.location.hostname}:3001`;
+        const res = await fetch(`${baseUrl}/api/tenor/trending?limit=9`);
         const data = await res.json();
         setGifs(data.results || []);
         setShowGifs(true);
@@ -73,9 +75,14 @@ const SensoryHub = () => {
     // Core hardware services - Initialize ONCE
     const initServices = async () => {
       try {
-        await cameraManager.start();
-        await gestureService.initialize();
-        await expressionService.initialize();
+        console.log("⚡ SensoryHub: Booting services in parallel...");
+        
+        // Parallel Initialization with Fault Tolerance
+        await Promise.all([
+             cameraManager.start().catch(e => console.error("Camera fail", e)),
+             gestureService.initialize().catch(e => console.error("Gesture init fail", e)),
+             expressionService.initialize().catch(e => console.error("Expression init fail", e))
+        ]);
 
         gestureService.start();
         expressionService.start();
@@ -101,7 +108,8 @@ const SensoryHub = () => {
   useEffect(() => {
     const handleExpression = (data: { expression: string; probability: number; timestamp: number }) => {
       const map: Record<string, string> = {
-        happy: '😊', sad: '😢', angry: '😠', surprised: '😮', disgusted: '🤢', fearful: '😨', neutral: '😐'
+        happy: '😊', sad: '😢', angry: '😠', surprised: '😮', 
+        disgusted: '🤢', fearful: '😨', neutral: '😐'
       };
       
       setExpression(prev => {
@@ -241,7 +249,7 @@ const SensoryHub = () => {
                           className={`neo-button flex items-center gap-3 px-8 transition-all ${isListening ? 'bg-neo-accent text-neo-black animate-pulse' : 'bg-neo-black text-neo-white'}`} 
                           onClick={startListening}
                         >
-                          <span className="text-2xl">🎤</span>
+                          <span className="text-3xl">🎙️</span>
                           <span className="font-heavy uppercase italic">Project Voice</span>
                         </button>
                       </div>
@@ -288,7 +296,7 @@ const SensoryHub = () => {
                   <div className={`bg-neo-accent neo-border p-8 flex flex-col items-center justify-center group-hover:rotate-2 transition-transform ${expression.label === 'NEUTRAL' ? 'opacity-40 animate-pulse' : ''}`}>
                     <span className="text-9xl mb-4">{expression.emoji}</span>
                     <span className="text-3xl font-heavy uppercase tracking-widest text-neo-black">
-                        {expression.label === 'NEUTRAL' ? 'Scanning...' : expression.label}
+                        {expression.label === 'NEUTRAL' ? 'ACTIVE' : expression.label}
                     </span>
                   </div>
                 </div>
@@ -298,7 +306,7 @@ const SensoryHub = () => {
                 <div className="relative neo-border bg-neo-blue p-8 h-full">
                   <h3 className="font-heavy text-4xl uppercase mb-6 text-neo-white italic">Gesture Sync</h3>
                   <div className="bg-neo-purple neo-border p-8 flex flex-col items-center justify-center group-hover:-rotate-2 transition-transform text-neo-white">
-                    <span className="text-9xl mb-4">�️</span>
+                    <span className="text-9xl mb-4">🖐️</span>
                     <span className="text-3xl font-heavy uppercase tracking-widest">DETECTED</span>
                   </div>
                 </div>

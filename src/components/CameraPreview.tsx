@@ -115,7 +115,7 @@ const CameraPreview: React.FC = () => {
               <div>
                 <p className="text-xs font-heavy text-neo-black opacity-50 uppercase tracking-tighter">Current Mood</p>
                 <p className="text-3xl font-heavy text-neo-black uppercase leading-none">
-                    {expression.label === 'NEUTRAL' ? 'Scanning...' : expression.label}
+                    {expression.label === 'NEUTRAL' ? 'ACTIVE' : expression.label}
                 </p>
               </div>
             </div>

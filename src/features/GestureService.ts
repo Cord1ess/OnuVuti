@@ -11,15 +11,16 @@ class GestureService {
         if (this.gestureRecognizer) return;
 
         try {
+            console.log("🙌 GestureService: Loading WASM from CDN...");
             const vision = await FilesetResolver.forVisionTasks(
-                '/wasm' // Load from local public/wasm directory
+                'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
             );
 
             this.gestureRecognizer = await GestureRecognizer.createFromOptions(vision, {
                 baseOptions: {
                     modelAssetPath:
                         'https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task',
-                    delegate: 'GPU',
+                    delegate: 'CPU', // GPU is unstable on many mobile browsers
                 },
                 runningMode: 'VIDEO',
             });
@@ -60,7 +61,8 @@ class GestureService {
             this.lastProcessTime = now;
 
             try {
-                const result = this.gestureRecognizer?.recognizeForVideo(video, Date.now());
+                // MediaPipe requires high-res timestamp
+                const result = this.gestureRecognizer?.recognizeForVideo(video, performance.now());
 
                 if (result && result.gestures.length > 0) {
                     const topGesture = result.gestures[0][0];

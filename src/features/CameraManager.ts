@@ -13,10 +13,14 @@ class CameraManager {
     private constructor() {
         this.videoElement = document.createElement('video');
         this.videoElement.autoplay = true;
-        this.videoElement.playsInline = true;
-        // Hide the video element as it's for processing only, 
+        this.videoElement.playsInline = true; // Critical for iOS
+        this.videoElement.setAttribute('playsinline', 'true'); // Explicit attribute for Safari
+        // Hide the video element as it's for processing only
         // unless we want to debug/show self-view elsewhere
-        this.videoElement.style.display = 'none';
+        // Hack: Browsers throttle 'display: none' videos. Use opacity 0 instead.
+        this.videoElement.style.position = 'absolute';
+        this.videoElement.style.top = '-9999px';
+        this.videoElement.style.opacity = '0.001'; 
         document.body.appendChild(this.videoElement);
     }
 
@@ -43,9 +47,9 @@ class CameraManager {
             try {
                 this.stream = await navigator.mediaDevices.getUserMedia({
                     video: {
-                        width: { ideal: 320, max: 320 },
-                        height: { ideal: 240, max: 240 },
-                        facingMode: 'user',
+                        width: { ideal: 640 }, // Flexible width
+                        height: { ideal: 480 }, // Flexible height
+                        facingMode: 'user', // Front camera
                     },
                     audio: false,
                 });
@@ -55,11 +59,26 @@ class CameraManager {
                         this.videoElement.play().then(() => resolve(null));
                     };
                 });
-                console.log('📸 CameraManager: Stream started');
                 eventBus.emit('camera_ready');
             } catch (error) {
-                console.error('📸 CameraManager: Failed to start stream', error);
-                throw error;
+                try {
+                     // Fallback: Try without facingMode (any available camera)
+                     this.stream = await navigator.mediaDevices.getUserMedia({
+                        video: true,
+                        audio: false,  
+                     });
+                     this.videoElement.srcObject = this.stream;
+                     await this.videoElement.play();
+                     console.log('📸 CameraManager: Fallback stream active');
+                     eventBus.emit('camera_ready');
+                } catch (fallbackError) {
+                     console.error('📸 CameraManager: All camera access failed', fallbackError);
+                     if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+                         console.error('🚨 Camera requires HTTPS on network addresses! Please use a secure connection.');
+                         alert("Camera blocked! You must use HTTPS or localhost for camera access on mobile/network.");
+                     }
+                     throw fallbackError;
+                }
             } finally {
                 this.initializationPromise = null;
             }
